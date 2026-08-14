@@ -1,0 +1,22 @@
+# LGF 开源包依赖
+# 建议使用 Python 3.9+ 与 CUDA 环境
+
+# 深度学习
+torch>=2.0
+dgl>=1.1
+transformers>=4.36
+
+# 科学计算 / 指标
+scikit-learn>=1.3
+numpy>=1.24
+
+# HTTP（局部模块调用本地 LLM 服务）
+requests>=2.31
+
+# RST 解析（全局模块使用 isanlp-rst）
+# 说明：GlobalDataset 训练时会用 isanlp-rst 解析段落文本。
+# 若仅运行 local 局部模块，可跳过此依赖。
+# isanlp-rst>=0.1.0
+
+# 备选 RST 解析器（global_module.py 中也含基于 stanza 的解析实现）
+# stanza>=1.8
