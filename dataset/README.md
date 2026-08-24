@@ -1,38 +1,79 @@
-# 完整数据集说明
+# Dataset: RST-Enhanced Paleontology Knowledge Graph Validation
 
-本开源包仅附带 `data/NLI_Input_total_1_sample.json`（20 条样例子集），用于演示数据格式与复现流程。
+This file documents only the dataset. The code, method, and usage instructions are in the repository root [README.md](../README.md).
 
-## 完整数据获取
+## Overview
 
-由于完整数据集来源于受版权保护的古生物学科学文献全文（包含文献段落原文），无法随代码直接分发。**完整数据集（2569 条 NLI 验证样本）可联系论文作者获取**。
+The **complete dataset is fully open-sourced** in this repository at [data/NLI_Input_total_1.json](../data/NLI_Input_total_1.json).
 
-如需自行构造，请遵循以下字段规范生成与样例同结构的 JSON 列表：
+It contains **2,569 NLI-based knowledge graph triple validation samples** constructed from paleontology scientific literature. Each sample asks whether a candidate knowledge graph triple (hypothesis) is supported by a source paragraph (premise) split into sentences.
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `premise` | `list[str]` | 源文献段落，按句切分（平均 7.8 句/条，范围 2–25 句） |
-| `hypothesis` | `str` | 由待验证三元组生成的自然语言假设句 |
-| `is_negative` | `bool` | 是否负样本（`false`=正样本，`true`=负样本） |
-| `head_type` | `str` | 头实体类型自然语言描述 |
-| `tail_type` | `str` | 尾实体类型自然语言描述 |
-| `head_type_pair` | `list` | `[头实体文本, 头实体类型小写]` |
-| `tail_type_pair` | `list` | `[尾实体文本, 尾实体类型小写]` |
+## File
 
-## 数据集规模（完整版）
-
-| 指标 | 值 |
+| File | Description |
 |---|---|
-| 总样本数 | 2569 |
-| 正样本 | 1637 |
-| 负样本 | 932 |
-| 正负比 | 约 1.76 : 1 |
+| `data/NLI_Input_total_1.json` | Complete dataset (2,569 samples), stored as a JSON list |
 
-## 数据来源
+## Data Format
 
-数据从**古生物学领域科学文献**中构建：
-1. 从文献中抽取知识图谱三元组（实体识别 + 关系抽取）；
-2. 将待验证三元组自然语言化为 `hypothesis`；
-3. 将相关文献段落按句切分作为 `premise`（外部证据）；
-4. 人工/规则标注三元组正确性为 `is_negative` 标签。
+Each item is a JSON object:
 
-如需引用数据集，请引用论文。
+| Field | Type | Description |
+|---|---|---|
+| `premise` | `list[str]` | Source paragraph represented as a list of sentences |
+| `hypothesis` | `str` | Natural-language hypothesis generated from the candidate triple |
+| `is_negative` | `bool` | `true` = negative sample, `false` = positive sample |
+| `head_type` | `str` | Natural-language description of the head entity type |
+| `tail_type` | `str` | Natural-language description of the tail entity type |
+| `head_type_pair` | `list` | `[head entity text, lowercase head entity type]` |
+| `tail_type_pair` | `list` | `[tail entity text, lowercase tail entity type]` |
+
+Example:
+
+```json
+{
+  "premise": ["Sentence 1.", "Sentence 2."],
+  "hypothesis": "The candidate triple expressed as a natural-language statement.",
+  "is_negative": false,
+  "head_type": "head entity type",
+  "tail_type": "tail entity type",
+  "head_type_pair": ["head entity", "location"],
+  "tail_type_pair": ["tail entity", "section"]
+}
+```
+
+Model label mapping: `label = 1.0` for positive samples (`is_negative = false`), `label = 0.0` for negative samples (`is_negative = true`).
+
+## Statistics
+
+| Statistic | Value |
+|---|---:|
+| Total samples | 2,569 |
+| Positive samples | 1,637 |
+| Negative samples | 932 |
+| Positive-to-negative ratio | ≈ 1.76 : 1 |
+
+Evidence length: **7.8 sentences per instance on average** (range 2–25).
+
+## Data Split
+
+| Split | Samples |
+|---|---:|
+| Training | 1,798 |
+| Test | 771 |
+| Total | 2,569 |
+
+## Construction
+
+The dataset was built from paleontology scientific literature. Steps:
+
+1. Extract entities and relations from the literature to form candidate triples.
+2. Convert each triple into a natural-language hypothesis.
+3. Collect the relevant paragraph from the source as evidence and split it into sentences (`premise`).
+4. Annotate whether the triple is consistent with its supporting evidence (`is_negative`).
+
+It is designed to evaluate triple validation under **long texts, multiple evidence sentences, and dispersed factual information**.
+
+## Data Availability
+
+The complete dataset is released for **academic and research purposes**. Users are responsible for complying with the copyright and usage conditions of the original source materials and should properly cite the original publications where required. The dataset should not be redistributed for commercial purposes without authorization.

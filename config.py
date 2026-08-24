@@ -13,7 +13,8 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 数据文件（NLI 验证样本，JSON 列表，每个样本含 premise/hypothesis/is_negative 等字段）
-DATA_PATH = os.path.join(BASE_DIR, "data", "NLI_Input_total_1_sample.json")
+# 完整数据集已全部开源，见 data/NLI_Input_total_1.json
+DATA_PATH = os.path.join(BASE_DIR, "data", "NLI_Input_total_1.json")
 
 # RST 解析结果缓存文件（pkl，训练/推理时自动生成）
 RST_CACHE_PATH = os.path.join(BASE_DIR, "data", "NLI_Input_total_1_rst_cache.pkl")

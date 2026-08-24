@@ -1,116 +1,148 @@
-# RST 增强的古生物知识图谱验证方法
+# LGF: RST-Enhanced Local-Global Fusion for Paleontology Knowledge Graph Validation
 
-本仓库是论文《RST 增强的古生物知识图谱验证》的**主实验开源代码**。
+This repository provides the **main experimental code** for our paper on RST-enhanced knowledge graph validation in paleontology.
 
-LGF（Local-Global Fusion）通过 **修辞结构理论（RST）** 解析文献段落的句间逻辑关系，融合**段落逻辑信息（全局模块）** 与 **局部语义证据（局部模块）**，判断一个待验证三元组（hypothesis）是否能被文献段落（premise）支持。
+**LGF (Local-Global Fusion)** parses inter-sentence logical relations in scientific paragraphs using **Rhetorical Structure Theory (RST)**, then fuses **paragraph-level logical information (global module)** with **local semantic evidence (local module)** to determine whether a candidate triple (hypothesis) is supported by the source paragraph (premise).
 
-## 目录结构
+The **full dataset (2,569 samples) is open-sourced in this repository** — see [data/](data/).
+
+## Repository Structure
 
 ```
 open_source/
-├── config.py                    # ★ 唯一个性化配置文件（路径 / LLM 服务地址）
-├── requirements.txt             # 依赖清单
+├── config.py                    # ★ Only file you need to personalize (paths / LLM service)
+├── requirements.txt             # Dependencies
 ├── README.md
 ├── data/
-│   └── NLI_Input_total_1_sample.json   # 20 条样例子集（完整数据见 dataset/）
+│   └── NLI_Input_total_1.json   # ★ Complete dataset (2,569 samples) — fully open-sourced
 ├── dataset/
-│   └── README.md                # 完整数据集获取方式与字段说明
+│   └── README.md                # Dataset format, statistics, and documentation
 ├── model/
-│   ├── global_module.py         # 全局模块：RST 解析 + RGAT 图注意力 + 注意力池化 + 分类器
-│   ├── fusion_module.py         # 融合模块：Top-K 证据筛选 + 门控融合
-│   ├── train_global.py          # ★ 训练入口（全局模块）
-│   ├── fusion_inference.py      # ★ 推理入口（全局 + 局部 + 门控融合）
-│   └── local_1.py               # ★ 局部 LLM 推理入口（实体证据筛选 + LLM 判断）
-└── output/                      # 模型权重与推理结果输出目录
+│   ├── global_module.py         # Global module: RST parsing + RGAT + attention pooling + classifier
+│   ├── fusion_module.py         # Fusion module: Top-K evidence selection + gated fusion
+│   ├── train_global.py          # ★ Training entry (global module)
+│   ├── fusion_inference.py      # ★ Inference entry (global + local + gated fusion)
+│   └── local_1.py               # ★ Local LLM inference entry (entity evidence selection + LLM judgment)
+└── output/                      # Directory for model weights and inference results
 ```
 
-## 方法概述
+---
 
-| 模块 | 作用 |
+## Method Overview
+
+| Module | Role |
 |---|---|
-| **全局模块** | 用 RST 把段落解析为句间修辞关系树，构建异构图，经 RGAT 聚合得到段落逻辑表示，再通过假设引导的注意力池化得到全局预测概率 `p_global` |
-| **局部模块** | 以待验证三元组的自然语言假设为查询，筛选与目标语义最相关的证据句子，交给 LLM 判断得到局部预测概率 `p_local` |
-| **门控融合** | 用启发式门控 `fixed_gate` 动态调整全局/局部信息贡献，得到最终概率 `p_final` |
+| **Global module** | Parses a paragraph into an RST-based discourse relation tree, builds a heterogeneous graph, aggregates via RGAT to obtain a paragraph-level logical representation, then produces the global prediction probability `p_global` through hypothesis-guided attention pooling |
+| **Local module** | Uses the natural-language hypothesis of the candidate triple as a query to retrieve the evidence sentences most relevant to the target semantics, and asks an LLM to produce the local prediction probability `p_local` |
+| **Gated fusion** | Uses a heuristic gate `fixed_gate` to dynamically balance the global/local contributions and obtain the final probability `p_final` |
 
-## 快速开始
+---
 
-### 1. 安装依赖
+## Quick Start
+
+### 1. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-> 全局模块使用 `isanlp-rst` 做 RST 解析（`tchewik/isanlp_rst_v3`，需联网下载模型），首次运行较慢。如未安装，可参考 requirements.txt 中注释安装 `stanza` 备选解析方案。
+> The global module uses `isanlp-rst` for RST parsing (the `tchewik/isanlp_rst_v3` model is downloaded from the network, so the first run is slow). If it is not installed, an optional `stanza`-based parser is noted in `requirements.txt`.
 
-### 2. 配置
+### 2. Configure
 
-编辑 [config.py](config.py)，按需修改：
+Edit [config.py](config.py) as needed:
 
 ```python
-DEVICE          = "cpu"                    # 有 CUDA 时改为 "cuda:0"
-DATA_PATH       = "data/NLI_Input_total_1_sample.json"
-LLM_API_ENDPOINT = "http://localhost:8001/v1"   # 你的本地 LLM 服务（OpenAI 兼容）
+DEVICE           = "cpu"                    # change to "cuda:0" if CUDA is available
+DATA_PATH        = "data/NLI_Input_total_1.json"
+LLM_API_ENDPOINT = "http://localhost:8001/v1"   # your local OpenAI-compatible LLM service
 LLM_MODEL_NAME   = "Llama3.1-8B-Instruct"
 ```
 
-> 局部模块需要一个 **OpenAI 兼容的 Chat Completions 服务**（vLLM、llama.cpp、本地推理服务均可），并开启 `logprobs` 以计算置信度。若无可用服务，仅全局模块（`train_global.py`）可独立运行。
+> The local module requires an **OpenAI-compatible Chat Completions service** (vLLM, llama.cpp, or any local inference server) with `logprobs` enabled to compute confidence scores. If no such service is available, the global module (`train_global.py`) can still run standalone.
 
-### 3. 训练全局模块
+### 3. Train the Global Module
 
 ```bash
 cd model
 python train_global.py
 ```
 
-训练完成后模型保存在 `output/best_model.pt`。
+After training, the model is saved to `output/best_model.pt`.
 
-### 4. 局部模块推理（可选，需 LLM 服务）
+### 4. Local Module Inference (optional; requires an LLM service)
 
 ```bash
 cd model
 python local_1.py
 ```
 
-### 5. 融合推理（完整 LGF）
+### 5. Fusion Inference (full LGF)
 
 ```bash
 cd model
 python fusion_inference.py
 ```
 
-输出结果与评测指标（全局 / 局部 / 融合三类在测试集上的 Acc / F1 / P / R）打印在控制台，并保存到 `output/fusion_results.json`。
+Prediction results and evaluation metrics (Acc / F1 / P / R for the global, local, and fused variants on the test set) are printed to the console and saved to `output/fusion_results.json`.
 
-## 数据格式
+### 6. Pretrained Models
 
-每个样本为一个 JSON 对象：
+The trained model checkpoints are **not hosted in this GitHub repository** because each file is ~1.1–1.2 GB (exceeding GitHub's 100 MB single-file limit). The following checkpoints are available:
+
+| Checkpoint | Description | Approx. size |
+|---|---|---|
+| `best_model.pt` | Full global model using RST discourse structure | ~1.2 GB |
+| `best_model_wo_rst.pt` | Global model without RST (ablation) | ~1.1 GB |
+
+If you need the checkpoints, please contact us by email (see [Contact](#contact)). The full dataset is already included in this repository under `data/NLI_Input_total_1.json`.
+
+---
+
+## Data
+
+The **complete dataset is open-sourced** in this repository at [data/NLI_Input_total_1.json](data/NLI_Input_total_1.json), containing **2,569 NLI-based knowledge graph triple validation samples** (no sampling needed). See [dataset/README.md](dataset/README.md) for dataset statistics, the train/test split, and the data-construction procedure.
+
+Each sample is a JSON object:
 
 ```json
 {
-  "premise": ["句子1", "句子2", "..."],
-  "hypothesis": "由三元组生成的自然语言假设句",
+  "premise": ["Sentence 1", "Sentence 2", "..."],
+  "hypothesis": "Natural-language hypothesis generated from the triple",
   "is_negative": false,
-  "head_type": "头实体类型描述",
-  "tail_type": "尾实体类型描述",
-  "head_type_pair": ["头实体", "location"],
-  "tail_type_pair": ["尾实体", "section"]
+  "head_type": "head entity type description",
+  "tail_type": "tail entity type description",
+  "head_type_pair": ["head entity", "location"],
+  "tail_type_pair": ["tail entity", "section"]
 }
 ```
 
-模型中 `label = 0.0` 表示负样本（`is_negative=true`），`1.0` 表示正样本。
+In the model, `label = 0.0` corresponds to a negative sample (`is_negative = true`) and `1.0` to a positive sample.
+
+---
 
 ## License
 
-代码遵循 MIT License。数据集的使用请参考 [dataset/README.md](dataset/README.md)。
+The code is released under the MIT License. For dataset usage, please refer to [dataset/README.md](dataset/README.md).
 
-## 引用
+## Citation
 
-如使用本代码，请引用我们的论文：
+If you use this code, please cite our paper:
 
-```
+```bibtex
 @article{yourPaper,
-  title={RST增强的古生物知识图谱验证},
-  ...
+  title  = {RST-Enhanced Paleontology Knowledge Graph Validation},
+  year   = {2026}
 }
 ```
 
-（引用信息在论文正式发表后补充。）
+(Citation details will be completed after the paper is formally published.)
+
+---
+
+## Contact
+
+For questions or to request the pretrained model checkpoints, please contact:
+
+**Jie Lu**
+Email: [15226155582@163.com](mailto:15226155582@163.com)
